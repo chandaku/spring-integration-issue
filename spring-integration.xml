@@ -1,0 +1,159 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<beans xmlns="http://www.springframework.org/schema/beans"
+	xmlns:int="http://www.springframework.org/schema/integration"
+	xmlns:int-file="http://www.springframework.org/schema/integration/file"
+	xmlns:int-mail="http://www.springframework.org/schema/integration/mail"
+	xmlns:int-stream="http://www.springframework.org/schema/integration/stream"
+	xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xmlns:context="http://www.springframework.org/schema/context"
+	xsi:schemaLocation="http://www.springframework.org/schema/integration/mail http://www.springframework.org/schema/integration/mail/spring-integration-mail.xsd
+		http://www.springframework.org/schema/integration http://www.springframework.org/schema/integration/spring-integration.xsd
+		http://www.springframework.org/schema/integration/file http://www.springframework.org/schema/integration/file/spring-integration-file.xsd
+		http://www.springframework.org/schema/integration/stream http://www.springframework.org/schema/integration/stream/spring-integration-stream.xsd
+		http://www.springframework.org/schema/beans http://www.springframework.org/schema/beans/spring-beans.xsd
+		http://www.springframework.org/schema/context http://www.springframework.org/schema/context/spring-context.xsd">
+
+	<int:annotation-config />
+	<int:channel id="pilotFileIn"></int:channel>
+	<int:channel id="plannedFileIn"></int:channel>
+	<int:channel id="cfpFileIn"></int:channel>
+	<int:channel id="trainingFileIn"></int:channel>
+	<int:channel id="bayNumberFileIn"></int:channel>
+
+	<int-file:inbound-channel-adapter id="pilotFileIn"
+		directory="${pilot.data.dir}" auto-startup="true" scanner="xlsxDirScanner">
+		<int:poller fixed-delay="${pilot.data.dir.polling.delay}"></int:poller>
+	</int-file:inbound-channel-adapter>
+
+	<int-file:inbound-channel-adapter id="plannedFileIn"
+		directory="${planned.flight.data.dir}" auto-startup="true" scanner="xlsDirScanner">
+		<int:poller fixed-delay="${planned.flight.data.dir.polling.delay}"></int:poller>
+	</int-file:inbound-channel-adapter>
+
+	<int-file:inbound-channel-adapter id="cfpFileIn"
+		directory="${cfp.flight.data.dir}" auto-startup="true" scanner="csvDirScanner">
+		<int:poller fixed-delay="${cfp.flight.data.dir.polling.delay}"></int:poller>
+	</int-file:inbound-channel-adapter>
+
+	<int-file:inbound-channel-adapter id="trainingFileIn"
+		directory="${training.flight.data.dir}" auto-startup="true" scanner="trainingDirScanner">
+		<int:poller fixed-delay="${training.flight.data.dir.polling.delay}"></int:poller>
+	</int-file:inbound-channel-adapter>
+
+	<int-file:inbound-channel-adapter id="bayNumberFileIn"
+		directory="${parking.bay.flight.data.dir}" auto-startup="true" scanner="bayDirScanner">
+		<int:poller fixed-delay="${parking.bay.flight.data.dir.polling.delay}"></int:poller>
+	</int-file:inbound-channel-adapter>
+
+
+	<bean id="csvDirScanner"
+		class="org.springframework.integration.file.WatchServiceDirectoryScanner">
+		<constructor-arg index="0" value="${cfp.flight.data.dir}" />
+		<property name="filter" ref="csvCompositeFilter" />
+		<property name="autoStartup" value="true" />
+	</bean>
+
+	<bean id="xlsDirScanner"
+		class="org.springframework.integration.file.WatchServiceDirectoryScanner">
+		<constructor-arg index="0" value="${planned.flight.data.dir}" />
+		<property name="filter" ref="xlsCompositeFilter" />
+		<property name="autoStartup" value="true" />
+	</bean>
+
+	<bean id="xlsxDirScanner"
+		class="org.springframework.integration.file.WatchServiceDirectoryScanner">
+		<constructor-arg index="0" value="${pilot.data.dir}"/>
+		<property name="filter" ref="xlsxCompositeFilter" />
+		<property name="autoStartup" value="true" />
+		
+	</bean>
+
+	<bean id="trainingDirScanner"
+		class="org.springframework.integration.file.WatchServiceDirectoryScanner">
+		<constructor-arg index="0" value="${training.flight.data.dir}" />
+		<property name="filter" ref="xlsCompositeFilter"></property>
+		<property name="autoStartup" value="true" />
+	</bean>
+	<bean id="bayDirScanner"
+		class="org.springframework.integration.file.WatchServiceDirectoryScanner">
+		<constructor-arg index="0" value="${parking.bay.flight.data.dir}" />
+		<property name="autoStartup" value="true" />
+		<property name="filter" ref="xlsCompositeFilter"></property>
+	</bean>
+
+	<bean id="persistentFilter"
+		class="org.springframework.integration.file.filters.FileSystemPersistentAcceptOnceFileListFilter">
+		<constructor-arg index="0" ref="metadataStore" />
+		<constructor-arg index="1" name="prefix" value="" />
+		<property name="flushOnUpdate" value="true" />
+	</bean>
+
+	<bean name="metadataStore"
+		class="org.springframework.integration.metadata.PropertiesPersistingMetadataStore">
+		<property name="baseDirectory" value="${metadata.dir}"></property>
+	</bean>
+
+	<bean id="csvCompositeFilter"
+		class="org.springframework.integration.file.filters.CompositeFileListFilter">
+		<constructor-arg>
+			<list>
+				<bean
+					class="org.springframework.integration.file.filters.SimplePatternFileListFilter">
+					<constructor-arg value="*.csv" />
+				</bean>
+				<ref bean="persistentFilter" />
+			</list>
+		</constructor-arg>
+	</bean>
+
+	<bean id="xlsCompositeFilter"
+		class="org.springframework.integration.file.filters.CompositeFileListFilter">
+		<constructor-arg>
+			<list>
+				<bean
+					class="org.springframework.integration.file.filters.SimplePatternFileListFilter">
+					<constructor-arg value="*.xls" />
+				</bean>
+				<ref bean="persistentFilter" />
+			</list>
+		</constructor-arg>
+	</bean>
+
+	<bean id="xlsxCompositeFilter"
+		class="org.springframework.integration.file.filters.CompositeFileListFilter">
+		<constructor-arg>
+			<list>
+				<bean
+					class="org.springframework.integration.file.filters.SimplePatternFileListFilter">
+					<constructor-arg value="*.xlsx" />
+				</bean>
+				<ref bean="persistentFilter" />
+			</list>
+		</constructor-arg>
+	</bean>
+	<bean id="trainingXlsCompositeFilter"
+		class="org.springframework.integration.file.filters.CompositeFileListFilter">
+		<constructor-arg>
+			<list>
+				<bean
+					class="org.springframework.integration.file.filters.SimplePatternFileListFilter">
+					<constructor-arg value="*.xls" />
+				</bean>
+				<ref bean="persistentFilter" />
+			</list>
+		</constructor-arg>
+	</bean>
+	<bean id="bayNumXlsCompositeFilter"
+		class="org.springframework.integration.file.filters.CompositeFileListFilter">
+		<constructor-arg>
+			<list>
+				<bean
+					class="org.springframework.integration.file.filters.SimplePatternFileListFilter">
+					<constructor-arg value="*.xls" />
+				</bean>
+				<ref bean="persistentFilter" />
+			</list>
+		</constructor-arg>
+	</bean>
+
+
+</beans>
